@@ -1,4 +1,4 @@
-package commands
+package submission
 
 const (
     ClientData              string  = "DATA"
@@ -14,6 +14,7 @@ const (
     ClientVerify                    = "VRFY"
 )
 
-type ClientCommand interface {
-    Keyword() string
+type Command interface {
+    Verb() string
 }
+

@@ -1,32 +1,24 @@
 package server
 
 import (
-	"context"
-	"net"
-	"sync"
+    "context"
+    "sync"
 
-	"martinstromberg.se/gabriel/internal/agents"
+    "martinstromberg.se/gabriel/internal/submission"
 )
 
 type SmtpServer struct {
-    msa         *agents.SubmissionAgent
-}
-
-func (s *SmtpServer) HandleConnection (c net.Conn) {
-
+    msa         *submission.Agent
 }
 
 func (s *SmtpServer) Start(ctx context.Context, wg *sync.WaitGroup) error {
-    err := s.msa.Start(ctx, wg)
-    if err != nil {
-        return err
-    }
+    s.msa.Start(ctx, wg)
 
     return nil
 }
 
 func CreateSmtpServer(address string) (*SmtpServer, error) {
-    sa, err := agents.CreateSubmissionAgent()
+    sa, err := submission.CreateAgent()
     if err != nil {
         return nil, err
     }
@@ -37,3 +29,4 @@ func CreateSmtpServer(address string) (*SmtpServer, error) {
 
     return s, nil
 }
+
