@@ -18,7 +18,7 @@ func (s *SmtpServer) Start(ctx context.Context, wg *sync.WaitGroup) error {
 }
 
 func CreateSmtpServer(address string) (*SmtpServer, error) {
-    sa, err := submission.CreateAgent()
+    sa, err := submission.CreateAgent(1587)
     if err != nil {
         return nil, err
     }

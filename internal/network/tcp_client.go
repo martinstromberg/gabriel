@@ -2,6 +2,7 @@ package network
 
 import (
 	"bytes"
+    "crypto/tls"
 	"fmt"
 	"io"
 	"net"
@@ -12,11 +13,23 @@ const (
 )
 
 type TcpClient struct {
-    conn    *net.TCPConn
+    conn            net.Conn
+    tlsConfig       *tls.Config
 }
 
 func (c *TcpClient) Close() error {
     return c.conn.Close()
+}
+
+func (c *TcpClient) EnableTLS() error {
+    tlsConn := tls.Server(c.conn, c.tlsConfig)
+    if err := tlsConn.Handshake(); err != nil {
+        return err
+    }
+
+    c.conn = tlsConn
+
+    return nil
 }
 
 func (c *TcpClient) ReadBytesUntil(p []byte, ms int) ([]byte, error) {
@@ -58,8 +71,9 @@ func (c *TcpClient) WriteBytes(buf []byte) error {
     return err
 }
 
-func CreateClient(c *net.TCPConn) *TcpClient {
+func NewClient(c *net.TCPConn, tlsConf *tls.Config) *TcpClient {
     return &TcpClient{
-        conn: c,
+        conn:       c,
+        tlsConfig:  tlsConf,
     }
 }

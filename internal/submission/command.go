@@ -1,7 +1,8 @@
 package submission
 
 const (
-    ClientData              string  = "DATA"
+    ClientAuthentication    string  = "AUTH"
+    ClientData                      = "DATA"
     ClientExpand                    = "EXPN"
     ClientExtendedHello             = "EHLO"
     ClientHello                     = "HELO"
@@ -11,6 +12,7 @@ const (
     ClientQuit                      = "QUIT"
     ClientRecipient                 = "RCPT"
     ClientReset                     = "RSET"
+    ClientStartTls                  = "STARTTLS"
     ClientVerify                    = "VRFY"
 )
 

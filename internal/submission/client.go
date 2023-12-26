@@ -11,8 +11,13 @@ import (
 const requestMaxSize int = 31457280
 
 type Client struct {
-    agent   *Agent
-    tcp     *network.TcpClient
+    agent               *Agent
+    authenticated       bool
+    tcp                 *network.TcpClient
+}
+
+func (c *Client) Authenticated() bool {
+    return c.authenticated
 }
 
 func (c *Client) readLine() ([]byte, error) {
@@ -55,6 +60,13 @@ func (c *Client) PerformHandshake() error {
 }
 
 func (c *Client) sendCapabilities(clientName string) error {
+    extensions := []string{
+        "STARTTLS",
+        "AUTH PLAIN",
+        "AUTH=REQUIRED",
+        fmt.Sprintf("SIZE %d", requestMaxSize),
+    }
+
     var sb strings.Builder
     var host string = "smtp.martinstromberg.se"
     
@@ -64,11 +76,34 @@ func (c *Client) sendCapabilities(clientName string) error {
         clientName,
     ))
 
-    sb.WriteString("250-STARTTLS\r\n")
-    sb.WriteString("250-AUTH LOGIN PLAIN\r\n")
-    sb.WriteString(fmt.Sprintf("250 SIZE %d\r\n", requestMaxSize))
+    for i, v := range extensions {
+        prefix := "-"
+        if i == len(extensions) - 1 {
+            prefix = " "
+        }
+
+        sb.WriteString(fmt.Sprintf("250%s%s\r\n", prefix, v))
+    }
 
     return c.writeString(sb.String())
+}
+
+func (c *Client) EnableTLS() error {
+    if err := c.tcp.EnableTLS(); err != nil {
+        return err
+    }
+
+    cmd, err := c.ReadCommand()
+    if err != nil {
+        return err
+    }
+
+    h, ok := cmd.(*Hello)
+    if !ok {
+        return fmt.Errorf("Expected HELO/EHLO, got '%s'", cmd.Verb())
+    }
+
+    return c.sendCapabilities(h.Name())
 }
 
 func (c *Client) ReadCommand() (Command, error) {
@@ -79,11 +114,17 @@ func (c *Client) ReadCommand() (Command, error) {
 
     fmt.Printf("MUA: %s", string(lb))
 
-    verb := string(lb[:4])
+    verb := strings.Trim(strings.SplitN(string(lb), " ", 2)[0], "\r\n ")
     switch verb {
     case ClientHello:
     case ClientExtendedHello:
         return parseHelloFromBytes(lb)
+
+    case ClientAuthentication:
+        return parseAuthenticationFromBytes(lb)
+
+    case ClientStartTls:
+        return &StartTls{}, nil
 
     case ClientMail:
         return parseSenderFromBytes(lb)
@@ -93,6 +134,7 @@ func (c *Client) ReadCommand() (Command, error) {
 
     case ClientData:
         return c.handleDataCommand()
+
     case ClientReset:
         return nil, errors.New("Not Implemented")
     case ClientNoOp:
@@ -124,7 +166,7 @@ func (c *Client) handleDataCommand() (*Data, error) {
         return nil, err
     }
 
-    fmt.Printf("%s", string(buf))
+    // fmt.Printf("%s", string(buf))
 
     return parseDataFromBytes(buf)
 }

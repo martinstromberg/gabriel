@@ -2,6 +2,7 @@ package network
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -14,9 +15,17 @@ type Handler interface {
     HandleConnection(c *TcpClient)
 }
 
-func StartListener(p int, h Handler, c context.Context, wg *sync.WaitGroup) error {
-    l, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", p))
+type TcpListener struct {
+    handler     Handler
+    context     context.Context
+    waitGroup   *sync.WaitGroup
+    tlsConfig   *tls.Config
+}
+
+func (tl *TcpListener) StartListener(port int) error {
+    l, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
     if err != nil {
+        fmt.Println(err.Error())
         return err
     }
 
@@ -24,18 +33,21 @@ func StartListener(p int, h Handler, c context.Context, wg *sync.WaitGroup) erro
 
     tcpL, ok := l.(*net.TCPListener)
     if !ok {
-        return errors.New("Unable to create TCPListener")
+        err = errors.New("Unable to create TCPListener")
+        fmt.Println(err.Error())
+
+        return err
     }
 
-    fmt.Println("Listening on port", p)
+    fmt.Println("Listening on port", port)
 
     dur := 5 * time.Second
 
     for {
         select {
-        case <- c.Done():
-            fmt.Println("Shutting down listener on port", p)
-            wg.Done()
+        case <- tl.context.Done():
+            fmt.Println("Shutting down listener on port", port)
+            tl.waitGroup.Done()
             return nil
         default:
             tcpL.SetDeadline(time.Now().Add(dur))
@@ -54,8 +66,19 @@ func StartListener(p int, h Handler, c context.Context, wg *sync.WaitGroup) erro
                 continue
             }
 
-            go h.HandleConnection(CreateClient(tcpC))
+            c := NewClient(tcpC, tl.tlsConfig)
+            go tl.handler.HandleConnection(c)
         }
     }
 }
 
+func NewListener(h Handler, ctx context.Context, wg *sync.WaitGroup, tlsConf *tls.Config) *TcpListener {
+    l := &TcpListener{
+        handler:    h,
+        context:    ctx,
+        waitGroup:  wg,
+        tlsConfig:  tlsConf,
+    }
+
+    return l
+}

@@ -2,6 +2,7 @@ package submission
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"io"
 	"sync"
@@ -10,6 +11,7 @@ import (
 )
 
 type Agent struct {
+    port            int
 }
 
 func (a *Agent) HandleConnection(c *network.TcpClient){
@@ -45,9 +47,18 @@ func (a *Agent) HandleConnection(c *network.TcpClient){
                 }
 
                 fmt.Println(body)
+            } else {
+                fmt.Println(err.Error())
             }
+
             return
         }
+
+        /*
+        if !client.Authenticated() && cmd.Verb() != ClientAuthentication {
+            client.writeString("530 5.7.1 Authentication required\r\n")
+        }
+        */
 
         switch cmd.Verb() {
             case ClientMail:
@@ -69,6 +80,18 @@ func (a *Agent) HandleConnection(c *network.TcpClient){
                 client.writeString("250 2.0.0 Message received and queued for delivery\r\n")
                 break
 
+            case ClientStartTls:
+                client.writeString("220 Ready to start TLS\r\n")
+                if err := client.EnableTLS(); err != nil {
+                    fmt.Println("TLS Error: ", err.Error())
+                    return
+                }
+                break
+
+            case ClientAuthentication:
+                a.handleAuthentication(client, cmd.(*Authentication))
+                break
+
             case ClientReset:
             case ClientNoOp:
             case ClientQuit:
@@ -81,13 +104,37 @@ func (a *Agent) HandleConnection(c *network.TcpClient){
     }
 }
 
-func (a *Agent) Start(ctx context.Context, wg *sync.WaitGroup) {
-    wg.Add(1)
-    go network.StartListener(1587, a, ctx, wg)
+func (a *Agent) handleAuthentication(c *Client, cmd *Authentication) {
+    panic("Not Implemented")
 }
 
-func CreateAgent() (*Agent, error) {
-    sa := &Agent{}
+func (a *Agent) Start(ctx context.Context, wg *sync.WaitGroup) {
+    cert, err := tls.LoadX509KeyPair("cert.pem", "key.pem")
+    if err != nil {
+        panic("Unable to load certificates for TLS")
+    }
+
+    tlsConf := &tls.Config{
+        InsecureSkipVerify: true,
+        ServerName:         "smtp.martinstromberg.se",
+        Certificates:       []tls.Certificate{cert},
+    }
+
+    l := network.NewListener(
+        a,
+        ctx,
+        wg,
+        tlsConf,
+    )
+
+    wg.Add(1)
+    go l.StartListener(a.port)
+}
+
+func CreateAgent(port int) (*Agent, error) {
+    sa := &Agent{
+        port:       port,
+    }
 
     return sa, nil
 }
