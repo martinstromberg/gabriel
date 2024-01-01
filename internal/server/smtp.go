@@ -8,6 +8,7 @@ import (
 )
 
 type SmtpServer struct {
+    config      *Config
     msa         *submission.Agent
 }
 
@@ -17,13 +18,21 @@ func (s *SmtpServer) Start(ctx context.Context, wg *sync.WaitGroup) error {
     return nil
 }
 
-func CreateSmtpServer(address string) (*SmtpServer, error) {
-    sa, err := submission.CreateAgent(1587)
-    if err != nil {
-        return nil, err
+func CreateSmtpServer(c *Config) (*SmtpServer, error) {
+    var (
+        err error
+        sa *submission.Agent = nil
+    )
+
+    if c.SubmissionsAgent {
+        sa, err = submission.CreateAgent(c.ServerPort)
+        if err != nil {
+            return nil, err
+        }
     }
 
     s := &SmtpServer{
+        config:     c,
         msa:        sa,
     }
 

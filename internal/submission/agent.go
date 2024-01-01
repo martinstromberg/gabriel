@@ -54,11 +54,9 @@ func (a *Agent) HandleConnection(c *network.TcpClient){
             return
         }
 
-        /*
         if !client.Authenticated() && cmd.Verb() != ClientAuthentication {
             client.writeString("530 5.7.1 Authentication required\r\n")
         }
-        */
 
         switch cmd.Verb() {
             case ClientMail:

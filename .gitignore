@@ -22,3 +22,9 @@
 
 # Go workspace file
 go.work
+
+# Executable
+gabrield
+
+# Config
+gabriel.ini

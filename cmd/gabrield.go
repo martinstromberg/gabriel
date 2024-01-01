@@ -12,7 +12,12 @@ import (
 )
 
 func main() {
-    s, err := server.CreateSmtpServer("0.0.0.0")
+    config, err := server.LoadConfig("gabriel.ini")
+    if err != nil {
+        panic(err.Error())
+    }
+
+    s, err := server.CreateSmtpServer(config)
     if err != nil {
         fmt.Println("Gabriel was unable to start:", err.Error())
         os.Exit(1)
@@ -29,7 +34,10 @@ func main() {
     go func() {
         <- sigCh
         cancel()
-        fmt.Println("Received termination signal. Stopping...")
+
+        if config.Development() {
+            fmt.Println("Received termination signal. Stopping...")
+        }
     }()
 
     err = s.Start(ctx, &wg)
@@ -39,6 +47,9 @@ func main() {
     }
 
     wg.Wait()
-    fmt.Println("All workers stopped. Exiting...")
+
+    if config.Development() {
+        fmt.Println("All workers stopped. Exiting...")
+    }
 }
 
